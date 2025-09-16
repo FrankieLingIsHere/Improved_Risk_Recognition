@@ -25,12 +25,12 @@ MANIFEST
 *.pth
 *.pt
 
-# Data files
+# Data files and artifacts
 *.csv
 !sample_*.csv
-data/
-models/
-outputs/
+/data/
+/models/
+/outputs/
 
 # Jupyter
 .ipynb_checkpoints
