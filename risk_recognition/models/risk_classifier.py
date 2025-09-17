@@ -352,15 +352,17 @@ class RiskClassifier:
         
         # Calculate metrics
         risk_report = classification_report(
-            test_data['risk_labels'], 
-            risk_pred_encoded, 
+            test_data['risk_labels'],
+            risk_pred_encoded,
+            labels=range(len(self.risk_label_encoder.classes_)),
             target_names=self.risk_label_encoder.classes_,
             output_dict=True
         )
-        
+
         cause_report = classification_report(
-            test_data['cause_labels'], 
-            cause_pred_encoded, 
+            test_data['cause_labels'],
+            cause_pred_encoded,
+            labels=range(len(self.cause_label_encoder.classes_)),
             target_names=self.cause_label_encoder.classes_,
             output_dict=True
         )
@@ -417,37 +419,41 @@ class RiskClassifier:
         sentence_model_path = os.path.join(load_path, 'sentence_model')
         if os.path.exists(sentence_model_path):
             self.sentence_model = SentenceTransformer(sentence_model_path)
-        
+        else:
+            raise FileNotFoundError(f"Sentence model not found at {sentence_model_path}")
+
         # Load label encoders
         import joblib
         self.risk_label_encoder = joblib.load(os.path.join(load_path, 'risk_label_encoder.pkl'))
         self.cause_label_encoder = joblib.load(os.path.join(load_path, 'cause_label_encoder.pkl'))
-        
+
         # Load classification heads
         embedding_dim = self.sentence_model.get_sentence_embedding_dimension()
+        if embedding_dim is None:
+            raise ValueError("Failed to get sentence embedding dimension. Sentence model may not be loaded correctly.")
         num_risk_classes = len(self.risk_label_encoder.classes_)
         num_cause_classes = len(self.cause_label_encoder.classes_)
-        
+
         self.risk_classifier = self._create_classifier_head(embedding_dim, num_risk_classes)
         self.cause_classifier = self._create_classifier_head(embedding_dim, num_cause_classes)
-        
+
         self.risk_classifier.load_state_dict(
             torch.load(os.path.join(load_path, 'risk_classifier.pth'), map_location=self.device)
         )
         self.cause_classifier.load_state_dict(
             torch.load(os.path.join(load_path, 'cause_classifier.pth'), map_location=self.device)
         )
-        
+
         self.risk_classifier.to(self.device)
         self.cause_classifier.to(self.device)
-        
+
         # Load training history
         import json
         history_path = os.path.join(load_path, 'training_history.json')
         if os.path.exists(history_path):
             with open(history_path, 'r') as f:
                 self.training_history = json.load(f)
-        
+
         logger.info(f"Model loaded from {load_path}")
     
     def train(self, df: pd.DataFrame, 
